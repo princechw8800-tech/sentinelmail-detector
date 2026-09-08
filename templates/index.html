@@ -7,7 +7,7 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0">
 
-    <title>Fake Email Detector</title>
+    <title>SentinelMail | Email Spoofing Detector</title>
 
     <link rel="stylesheet"
           href="{{ url_for('static', filename='style.css') }}">
@@ -29,11 +29,11 @@
     <div class="container">
         <div class="card">
             <div class="topbar"><div class="brand"><span>◈</span> SENTINEL<span>MAIL</span></div><div class="system-status"><i></i> SYSTEM ONLINE</div></div>
-            <div class="hero"><div class="eyebrow">FAKE EMAIL DETECTOR</div><h1>Detect deception<br><em>before it lands.</em></h1><p class="subtitle">Inspect email headers, authentication signals, and phishing indicators in seconds.</p></div>
+            <div class="hero"><div class="eyebrow">EMAIL SPOOFING FORENSICS</div><h1>Verify the sender<br><em>before you trust it.</em></h1><p class="subtitle">Inspect sender headers and authentication signals to identify spoofed emails.</p></div>
 
-            <div class="demo-bar"><span>DEMO MODE</span><button class="demo-button" type="button" data-demo="safe">SAFE EMAIL</button><button class="demo-button" type="button" data-demo="phishing">PHISHING EMAIL</button><button class="demo-button" type="button" data-demo="invoice">SPOOFED INVOICE</button></div>
+            <div class="demo-bar"><span>DEMO MODE</span><button class="demo-button" type="button" data-demo="verified">VERIFIED SENDER</button><button class="demo-button" type="button" data-demo="spoofed">SPOOFED SENDER</button><button class="demo-button" type="button" data-demo="mismatch">HEADER MISMATCH</button></div>
 
-            <section class="history-panel"><div class="history-head"><h2>Security Console</h2><span id="historyCount">0 SCANS</span></div><div class="metrics"><div><small>HIGH RISK</small><strong id="highRiskCount">0</strong></div><div><small>AVG SCORE</small><strong id="averageScore">0%</strong></div><div><small>LAST VERDICT</small><strong id="lastVerdict">—</strong></div></div><div id="historyChart" class="history-chart"></div><div id="historyList" class="history-list"><span>No scans in this browser yet.</span></div></section>
+            <section class="history-panel"><div class="history-head"><h2>Spoofing Console</h2><span id="historyCount">0 SCANS</span></div><div class="metrics"><div><small>SPOOFING ALERTS</small><strong id="highRiskCount">0</strong></div><div><small>AVG SCORE</small><strong id="averageScore">0%</strong></div><div><small>LAST VERDICT</small><strong id="lastVerdict">—</strong></div></div><div id="historyChart" class="history-chart"></div><div id="historyList" class="history-list"><span>No scans in this browser yet.</span></div></section>
 
             <form id="emailForm">
 
@@ -52,7 +52,12 @@
             </form>
 
             <div id="loading" class="hidden">
-                <span class="scanner"></span> ANALYZING EMAIL SIGNALS...
+                <span class="scanner"></span> VERIFYING SENDER IDENTITY...
+            </div>
+
+            <div id="terminalLog" class="terminal-log hidden" aria-live="polite">
+                <div class="terminal-head"><span>◉ LIVE SCAN TELEMETRY</span><i>ENCRYPTED</i></div>
+                <div id="terminalLines"></div>
             </div>
 
             <div id="error" class="error hidden"></div>
@@ -65,12 +70,14 @@
 
                     <div class="risk-gauge" id="riskGauge"><div><strong id="gaugeScore">0</strong><span>/100</span></div></div>
 
+                    <div class="threat-radar" id="threatRadar"><span class="radar-sweep"></span><i class="radar-blip"></i><b>SPOOFING<br>RADAR</b></div>
+
                     <div class="risk-label">SECURITY VERDICT</div><h3 id="classification">
                         —
                     </h3>
 
                     <p>
-                        Threat Score:
+                        Spoofing Score:
                         <strong id="riskScore">0%</strong>
                     </p>
 
@@ -111,10 +118,6 @@
                     </p>
 
                     <p>
-                        <strong>URLs Found:</strong>
-                        <span id="urls">—</span>
-                    </p>
-
                 </div>
 
                 <div class="authentication">
@@ -133,26 +136,15 @@ No authentication information available.
                     <div class="auth-card"><span>DMARC</span><strong id="dmarcStatus">NOT SCANNED</strong></div>
                 </div>
 
-                <div class="url-panel">
-                    <h3><span>03</span> URL INTELLIGENCE</h3>
-                    <div id="urlDetails" class="empty-state">No URLs scanned yet.</div>
-                </div>
-
-                <div class="email-preview">
-                    <h3><span>04</span> MESSAGE FORENSICS</h3>
-                    <p class="preview-note">Risk language is highlighted in the extracted email body.</p>
-                    <div id="emailPreview" class="preview-content">Run a scan to inspect the message.</div>
-                </div>
-
                 <div class="reasons">
 
-                    <h3><span>05</span> DETECTION SIGNALS</h3>
+                    <h3><span>03</span> SPOOFING SIGNALS</h3>
 
                     <ul id="reasons"></ul>
 
                 </div>
 
-                <button id="downloadReport" class="report-button" type="button">DOWNLOAD SECURITY REPORT <b>↓</b></button>
+                <button id="downloadReport" class="report-button" type="button">DOWNLOAD SPOOFING REPORT <b>↓</b></button>
 
             </div>
 
