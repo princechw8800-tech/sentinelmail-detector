@@ -5,17 +5,19 @@ const result = document.getElementById("result");
 const fileInput = document.getElementById("email_file");
 const uploadZone = document.querySelector(".upload-zone");
 const reportButton = document.getElementById("downloadReport");
+const terminalLog = document.getElementById("terminalLog");
+const terminalLines = document.getElementById("terminalLines");
 let latestResult = null;
 const historyKey = "sentinelmail-scan-history";
 const samples = {
-  safe: "From: Updates <news@company.example>\nTo: Demo <demo@example.test>\nSubject: Your monthly account update\nReceived: from mail.company.example\nAuthentication-Results: demo; spf=pass dkim=pass dmarc=pass\nContent-Type: text/plain\n\nHello, your monthly summary is now available in your account dashboard.",
-  phishing: "From: Bank Security <security@trusted-bank.example>\nReply-To: recovery@account-alerts.example\nReturn-Path: <bounce@mailer-update.example>\nSubject: URGENT: Verify your password now\nReceived: from mailer-update.example\nAuthentication-Results: demo; spf=fail dkim=fail dmarc=fail\nContent-Type: text/plain\n\nURGENT: Your account is suspended. Click here to login: https://secure-account-check.example/login\nVerify your password immediately at https://billing-review.example/verify",
-  invoice: "From: Vendor Billing <billing@vendor.example>\nReply-To: accounts@vendor-payments.example\nSubject: URGENT invoice payment required\nReceived: from unknown.example\nAuthentication-Results: demo; spf=softfail dkim=fail dmarc=fail\nContent-Type: text/plain\n\nYour invoice is overdue. Click here to login and verify payment: https://invoice-payment.example/login"
+  verified: "From: Service Updates <updates@company.example>\nTo: Demo <demo@example.test>\nReturn-Path: <updates@company.example>\nSubject: Monthly account update\nReceived: from mail.company.example\nAuthentication-Results: demo; spf=pass dkim=pass dmarc=pass\nContent-Type: text/plain\n\nYour monthly account update is available.",
+  spoofed: "From: Bank Security <security@trusted-bank.example>\nReply-To: reply@mailer-update.example\nReturn-Path: <bounce@mailer-update.example>\nSubject: Account notification\nReceived: from mailer-update.example\nAuthentication-Results: demo; spf=fail dkim=fail dmarc=fail\nContent-Type: text/plain\n\nThis is a harmless sender-spoofing demonstration.",
+  mismatch: "From: Payroll <payroll@company.example>\nReply-To: accounts@external-mail.example\nReturn-Path: <bounce@another-mail.example>\nSubject: Payroll update\nReceived: from unknown.example\nAuthentication-Results: demo; spf=softfail dkim=neutral dmarc=fail\nContent-Type: text/plain\n\nThis sample demonstrates header-domain mismatches."
 };
 
 const bootScreen = document.getElementById("bootScreen");
 const bootMessage = document.getElementById("bootMessage");
-const bootSteps = ["INITIALIZING THREAT ENGINE", "LOADING FORENSIC MODULES", "SECURING ANALYSIS CHANNEL", "SYSTEM READY"];
+const bootSteps = ["INITIALIZING SPOOFING ENGINE", "LOADING HEADER FORENSICS", "VERIFYING IDENTITY CHANNEL", "SYSTEM READY"];
 
 bootSteps.forEach((message, index) => {
   setTimeout(() => { bootMessage.textContent = message; }, index * 530);
@@ -37,9 +39,22 @@ function showError(message) {
   errorBox.classList.remove("hidden");
 }
 
-function highlightPreview(text) {
-  const safe = text.replace(/[&<>]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[character]));
-  return safe.replace(/\b(urgent|verify|password|login|account suspended|wire transfer|gift card|click here|limited time)\b/gi, '<mark>$1</mark>');
+function startTerminalLog() {
+  const entries = ["[BOOT] Secure parsing channel established", "[INFO] Extracting RFC 822 headers", "[INFO] Comparing sender and Reply-To domains", "[SCAN] Verifying SPF / DKIM / DMARC", "[SCAN] Checking Return-Path alignment"];
+  terminalLines.replaceChildren();
+  terminalLog.classList.remove("hidden");
+  entries.forEach((entry, index) => setTimeout(() => {
+    const line = document.createElement("p");
+    line.textContent = entry;
+    terminalLines.append(line);
+  }, index * 280));
+}
+
+function finishTerminalLog(highRisk) {
+  const line = document.createElement("p");
+  line.className = highRisk ? "terminal-alert" : "terminal-ok";
+  line.textContent = highRisk ? "[ALERT] Spoofing indicators found - sender not trusted" : "[OK] Scan complete - sender identity checks passed";
+  terminalLines.append(line);
 }
 
 function renderAuthentication(status) {
@@ -48,17 +63,6 @@ function renderAuthentication(status) {
     element.textContent = value;
     element.className = value === "PASS" ? "pass" : value.includes("FAIL") ? "fail" : "unknown";
   });
-}
-
-function renderUrls(urls) {
-  const area = document.getElementById("urlDetails");
-  if (!urls.length) { area.textContent = "No URLs were found in this email."; return; }
-  area.replaceChildren(...urls.map((item) => {
-    const row = document.createElement("div");
-    row.className = `url-row ${item.risk === "Review" ? "url-review" : ""}`;
-    row.innerHTML = `<strong>${item.domain}</strong><span>${item.risk}</span><small>${item.signals.join(" · ")}</small>`;
-    return row;
-  }));
 }
 
 function getHistory() {
@@ -124,6 +128,7 @@ renderHistory();
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   document.body.classList.add("is-scanning");
+  startTerminalLog();
   errorBox.classList.add("hidden");
   result.classList.add("hidden");
   loading.classList.remove("hidden");
@@ -133,10 +138,13 @@ form.addEventListener("submit", async (event) => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Analysis failed.");
     latestResult = data;
+    finishTerminalLog(data.risk_score >= 55);
     saveHistory(data);
     animateGauge(data.risk_score);
 
     document.getElementById("classification").textContent = data.classification;
+    document.getElementById("classification").classList.toggle("glitch", data.risk_score >= 55);
+    document.getElementById("threatRadar").classList.toggle("radar-critical", data.risk_score >= 55);
     document.getElementById("riskScore").textContent = `${data.risk_score}%`;
     document.getElementById("sender").textContent = data.sender;
     document.getElementById("domain").textContent = data.domain;
@@ -144,11 +152,8 @@ form.addEventListener("submit", async (event) => {
     document.getElementById("returnPath").textContent = data.return_path;
     document.getElementById("subject").textContent = data.subject;
     document.getElementById("received").textContent = data.received;
-    document.getElementById("urls").textContent = data.urls;
     document.getElementById("authentication").textContent = data.authentication;
     renderAuthentication(data.auth_status);
-    renderUrls(data.url_details);
-    document.getElementById("emailPreview").innerHTML = highlightPreview(data.body_preview || "No readable message body was found.");
     document.getElementById("reasons").replaceChildren(...data.reasons.map((reason) => {
       const item = document.createElement("li");
       item.textContent = reason;
@@ -160,6 +165,7 @@ form.addEventListener("submit", async (event) => {
   } finally {
     loading.classList.add("hidden");
     document.body.classList.remove("is-scanning");
+    setTimeout(() => terminalLog.classList.add("hidden"), 3200);
   }
 });
 
@@ -170,8 +176,9 @@ reportButton.addEventListener("click", async () => {
     if (!response.ok) throw new Error("Could not generate the report.");
     const link = document.createElement("a");
     link.href = URL.createObjectURL(await response.blob());
-    link.download = "sentinelmail-threat-report.pdf";
+    link.download = "sentinelmail-spoofing-report.pdf";
     link.click();
     URL.revokeObjectURL(link.href);
   } catch (error) { showError(error.message); }
 });
+
