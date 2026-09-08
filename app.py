@@ -43,7 +43,7 @@ def report():
     output = BytesIO()
     document = SimpleDocTemplate(output, pagesize=A4, leftMargin=42, rightMargin=42, topMargin=42)
     styles = getSampleStyleSheet()
-    story = [Paragraph("SentinelMail Email Threat Report", styles["Title"]), Spacer(1, 14)]
+    story = [Paragraph("SentinelMail Email Spoofing Report", styles["Title"]), Spacer(1, 14)]
     story.append(Paragraph(f"Verdict: <b>{data.get('classification')}</b> | Threat score: <b>{data.get('risk_score', 0)}%</b>", styles["Heading2"]))
     rows = [["Field", "Value"], ["Sender", data.get("sender", "-")], ["Domain", data.get("domain", "-")], ["Subject", data.get("subject", "-")]]
     table = Table(rows, colWidths=[115, 390])
@@ -59,3 +59,4 @@ def report():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
