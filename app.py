@@ -1,3 +1,4 @@
+
 from flask import Flask, Response, jsonify, render_template, request
 from detector import analyze_email
 from io import BytesIO
@@ -16,20 +17,35 @@ def home():
 
 @app.post("/analyze")
 def analyze():
+    # Check for file upload
     uploaded_file = request.files.get("email_file")
-    if uploaded_file is None or not uploaded_file.filename:
-        return jsonify({"error": "Please select an .eml email file."}), 400
+    email_text = request.form.get("email_text", "").strip()
 
-    if not uploaded_file.filename.lower().endswith(".eml"):
-        return jsonify({"error": "Only .eml files can be analyzed."}), 400
+    if uploaded_file and uploaded_file.filename:
+        # File upload mode
+        if not uploaded_file.filename.lower().endswith(".eml"):
+            return jsonify({"error": "Only .eml files can be analyzed."}), 400
 
-    try:
-        result = analyze_email(uploaded_file.read())
-    except ValueError as error:
-        return jsonify({"error": str(error)}), 400
-    except Exception:
-        app.logger.exception("Email analysis failed")
-        return jsonify({"error": "The email file could not be analyzed."}), 500
+        try:
+            result = analyze_email(uploaded_file.read())
+        except ValueError as error:
+            return jsonify({"error": str(error)}), 400
+        except Exception:
+            app.logger.exception("Email analysis failed")
+            return jsonify({"error": "The email file could not be analyzed."}), 500
+
+    elif email_text:
+        # Text input mode
+        try:
+            result = analyze_email(email_text.encode('utf-8'))
+        except ValueError as error:
+            return jsonify({"error": str(error)}), 400
+        except Exception:
+            app.logger.exception("Email analysis failed")
+            return jsonify({"error": "The email text could not be analyzed."}), 500
+
+    else:
+        return jsonify({"error": "Please select an .eml email file or paste email content."}), 400
 
     return jsonify(result)
 
