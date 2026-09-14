@@ -3,17 +3,38 @@ const loading = document.getElementById("loading");
 const errorBox = document.getElementById("error");
 const result = document.getElementById("result");
 const fileInput = document.getElementById("email_file");
+const textInput = document.getElementById("email_text");
 const uploadZone = document.querySelector(".upload-zone");
 const reportButton = document.getElementById("downloadReport");
 const terminalLog = document.getElementById("terminalLog");
 const terminalLines = document.getElementById("terminalLines");
 let latestResult = null;
+let currentInputMode = "file";
 const historyKey = "sentinelmail-scan-history";
 const samples = {
   verified: "From: Service Updates <updates@company.example>\nTo: Demo <demo@example.test>\nReturn-Path: <updates@company.example>\nSubject: Monthly account update\nReceived: from mail.company.example\nAuthentication-Results: demo; spf=pass dkim=pass dmarc=pass\nContent-Type: text/plain\n\nYour monthly account update is available.",
   spoofed: "From: Bank Security <security@trusted-bank.example>\nReply-To: reply@mailer-update.example\nReturn-Path: <bounce@mailer-update.example>\nSubject: Account notification\nReceived: from mailer-update.example\nAuthentication-Results: demo; spf=fail dkim=fail dmarc=fail\nContent-Type: text/plain\n\nThis is a harmless sender-spoofing demonstration.",
   mismatch: "From: Payroll <payroll@company.example>\nReply-To: accounts@external-mail.example\nReturn-Path: <bounce@another-mail.example>\nSubject: Payroll update\nReceived: from unknown.example\nAuthentication-Results: demo; spf=softfail dkim=neutral dmarc=fail\nContent-Type: text/plain\n\nThis sample demonstrates header-domain mismatches."
 };
+
+// Mode toggle handlers
+document.querySelectorAll(".mode-btn").forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    const mode = btn.dataset.mode;
+    currentInputMode = mode;
+    
+    document.querySelectorAll(".mode-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    
+    document.querySelectorAll(".input-mode").forEach(m => m.classList.add("hidden"));
+    if (mode === "file") {
+      document.getElementById("fileMode").classList.remove("hidden");
+    } else {
+      document.getElementById("textMode").classList.remove("hidden");
+    }
+  });
+});
 
 const bootScreen = document.getElementById("bootScreen");
 const bootMessage = document.getElementById("bootMessage");
@@ -127,6 +148,20 @@ renderHistory();
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  
+  // Validate input based on current mode
+  if (currentInputMode === "file") {
+    if (!fileInput.files.length) {
+      showError("Please select an .eml email file.");
+      return;
+    }
+  } else {
+    if (!textInput.value.trim()) {
+      showError("Please paste email content.");
+      return;
+    }
+  }
+  
   document.body.classList.add("is-scanning");
   startTerminalLog();
   errorBox.classList.add("hidden");
@@ -134,7 +169,18 @@ form.addEventListener("submit", async (event) => {
   loading.classList.remove("hidden");
 
   try {
-    const response = await fetch("/analyze", { method: "POST", body: new FormData(form) });
+    let response;
+    
+    if (currentInputMode === "file") {
+      // File upload mode
+      response = await fetch("/analyze", { method: "POST", body: new FormData(form) });
+    } else {
+      // Text input mode
+      const formData = new FormData();
+      formData.append("email_text", textInput.value);
+      response = await fetch("/analyze", { method: "POST", body: formData });
+    }
+    
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Analysis failed.");
     latestResult = data;
